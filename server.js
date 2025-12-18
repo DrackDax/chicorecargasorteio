@@ -1,8 +1,10 @@
 import express from "express";
 import session from "express-session";
-import Database from "better-sqlite3";
 import path from "path";
 import { fileURLToPath } from "url";
+
+import sqlite3 from "sqlite3";
+import { open } from "sqlite";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,28 +12,11 @@ const __dirname = path.dirname(__filename);
 // ====== CONFIG ======
 const PORT = process.env.PORT || 3000;
 
-// Troque aqui a senha do admin (depois podemos mover para env)
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "chico@1544";
+// Troque a senha via variável de ambiente no Render (recomendado)
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "chico123";
 
-// Banco SQLite (cria arquivo automaticamente)
-const dbFile = process.env.DB_PATH || path.join(__dirname, "database.sqlite");
-const db = new Database(dbFile);
-
-
-// Cria tabela se não existir
-db.exec(`
-  CREATE TABLE IF NOT EXISTS participants (
-    id TEXT PRIMARY KEY COLLATE NOCASE,
-    created_at INTEGER NOT NULL
-  );
-`);
-
-// Preparação de queries
-const qList = db.prepare("SELECT id, created_at FROM participants ORDER BY created_at DESC");
-const qInsert = db.prepare("INSERT INTO participants (id, created_at) VALUES (?, ?)");
-const qDelete = db.prepare("DELETE FROM participants WHERE id = ?");
-const qCount = db.prepare("SELECT COUNT(*) as count FROM participants");
-const qDraw = db.prepare("SELECT id, created_at FROM participants ORDER BY RANDOM() LIMIT 1");
+// Caminho do banco (no Render use: /var/data/database.sqlite com Disk)
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, "database.sqlite");
 
 // ====== APP ======
 const app = express();
@@ -42,14 +27,11 @@ app.use(
     secret: process.env.SESSION_SECRET || "chico-recarga-secret",
     resave: false,
     saveUninitialized: false,
-    cookie: {
-      httpOnly: true
-      // Em produção com HTTPS: secure: true
-    }
+    cookie: { httpOnly: true }
   })
 );
 
-// Static (frontend)
+// Static frontend
 app.use(express.static(path.join(__dirname, "public")));
 
 // ====== Helpers ======
@@ -57,7 +39,7 @@ function normalizeId(value) {
   return String(value || "").trim();
 }
 
-// Permitir letras, números, ponto e underline (3 a 32)
+// Permite letras, números, ponto e underline (3 a 32)
 function isValidBigoId(value) {
   const v = normalizeId(value);
   return /^[A-Za-z0-9._]{3,32}$/.test(v);
@@ -68,70 +50,106 @@ function requireAuth(req, res, next) {
   return res.status(401).json({ error: "Não autorizado" });
 }
 
-// ====== AUTH ======
-app.post("/api/login", (req, res) => {
-  const password = String(req.body?.password || "");
-  if (password === ADMIN_PASSWORD) {
-    req.session.isAdmin = true;
-    return res.json({ ok: true });
-  }
-  return res.status(401).json({ ok: false, error: "Senha incorreta" });
-});
+// ====== DB + Routes ======
+async function main() {
+  // Abre SQLite
+  const db = await open({
+    filename: DB_PATH,
+    driver: sqlite3.Database
+  });
 
-app.post("/api/logout", (req, res) => {
-  req.session.destroy(() => {
+  // Ajustes úteis
+  await db.exec("PRAGMA journal_mode = WAL;");
+  await db.exec("PRAGMA synchronous = NORMAL;");
+
+  // Cria tabela
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS participants (
+      id TEXT PRIMARY KEY COLLATE NOCASE,
+      created_at INTEGER NOT NULL
+    );
+  `);
+
+  // ====== AUTH ======
+  app.post("/api/login", (req, res) => {
+    const password = String(req.body?.password || "");
+    if (password === ADMIN_PASSWORD) {
+      req.session.isAdmin = true;
+      return res.json({ ok: true });
+    }
+    return res.status(401).json({ ok: false, error: "Senha incorreta" });
+  });
+
+  app.post("/api/logout", (req, res) => {
+    req.session.destroy(() => res.json({ ok: true }));
+  });
+
+  app.get("/api/me", (req, res) => {
+    res.json({ isAdmin: !!req.session?.isAdmin });
+  });
+
+  // ====== PARTICIPANTS ======
+  app.get("/api/participants", requireAuth, async (req, res) => {
+    const participants = await db.all(
+      "SELECT id, created_at FROM participants ORDER BY created_at DESC"
+    );
+    const row = await db.get("SELECT COUNT(*) as count FROM participants");
+    res.json({ total: row.count, participants });
+  });
+
+  app.post("/api/participants", requireAuth, async (req, res) => {
+    const id = normalizeId(req.body?.id);
+
+    if (!isValidBigoId(id)) {
+      return res.status(400).json({
+        error: "ID inválido. Use apenas letras, números, ponto ou underline (3 a 32 caracteres)."
+      });
+    }
+
+    try {
+      await db.run(
+        "INSERT INTO participants (id, created_at) VALUES (?, ?)",
+        [id, Date.now()]
+      );
+      return res.json({ ok: true });
+    } catch (err) {
+      // Erro de chave primária (duplicado)
+      return res.status(409).json({ error: "Esse ID já está na lista." });
+    }
+  });
+
+  app.delete("/api/participants/:id", requireAuth, async (req, res) => {
+    const id = normalizeId(req.params.id);
+
+    const result = await db.run("DELETE FROM participants WHERE id = ?", [id]);
+    if (result.changes === 0) {
+      return res.status(404).json({ error: "ID não encontrado." });
+    }
+
     res.json({ ok: true });
   });
-});
 
-app.get("/api/me", (req, res) => {
-  res.json({ isAdmin: !!req.session?.isAdmin });
-});
+  app.post("/api/draw", requireAuth, async (req, res) => {
+    const row = await db.get("SELECT COUNT(*) as count FROM participants");
+    if (row.count === 0) {
+      return res.status(400).json({ error: "Sem participantes para sortear." });
+    }
 
-// ====== PARTICIPANTS ======
-app.get("/api/participants", requireAuth, (req, res) => {
-  const rows = qList.all();
-  const total = qCount.get().count;
-  res.json({ total, participants: rows });
-});
+    const winner = await db.get(
+      "SELECT id, created_at FROM participants ORDER BY RANDOM() LIMIT 1"
+    );
 
-app.post("/api/participants", requireAuth, (req, res) => {
-  const id = normalizeId(req.body?.id);
+    res.json({ winner, total: row.count, drawnAt: Date.now() });
+  });
 
-  if (!isValidBigoId(id)) {
-    return res.status(400).json({
-      error: "ID inválido. Use apenas letras, números, ponto ou underline (3 a 32 caracteres)."
-    });
-  }
+  // ====== START ======
+  app.listen(PORT, () => {
+    console.log(`Servidor rodando na porta ${PORT}`);
+    console.log(`DB_PATH: ${DB_PATH}`);
+  });
+}
 
-  try {
-    qInsert.run(id, Date.now());
-    return res.json({ ok: true });
-  } catch (err) {
-    // UNIQUE/PRIMARY KEY
-    return res.status(409).json({ error: "Esse ID já está na lista." });
-  }
-});
-
-app.delete("/api/participants/:id", requireAuth, (req, res) => {
-  const id = normalizeId(req.params.id);
-
-  const info = qDelete.run(id);
-  if (info.changes === 0) return res.status(404).json({ error: "ID não encontrado." });
-
-  res.json({ ok: true });
-});
-
-app.post("/api/draw", requireAuth, (req, res) => {
-  const total = qCount.get().count;
-  if (total === 0) return res.status(400).json({ error: "Sem participantes para sortear." });
-
-  const winner = qDraw.get();
-  res.json({ winner, total, drawnAt: Date.now() });
-});
-
-// ====== START ======
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-  console.log(`Abra: http://localhost:${PORT}`);
+main().catch((err) => {
+  console.error("Falha ao iniciar o servidor:", err);
+  process.exit(1);
 });
