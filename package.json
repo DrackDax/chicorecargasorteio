@@ -1,0 +1,14 @@
+{
+  "name": "chico-recarga-sorteio",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "express": "^4.19.2",
+    "express-session": "^1.17.3"
+  }
+}
