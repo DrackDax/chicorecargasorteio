@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // ====== CONFIG ======
-const PORT = process.env.PORT || 1000;
+const PORT = process.env.PORT || 10000;
 
 // Troque a senha via variável de ambiente no Render (recomendado)
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "chico@123";
