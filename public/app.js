@@ -12,6 +12,34 @@ const btnLogout = document.getElementById("btnLogout");
 const winnerIdEl = document.getElementById("winnerId");
 const winnerMetaEl = document.getElementById("winnerMeta");
 
+// Overlay vencedor
+const winnerOverlay = document.getElementById("winnerOverlay");
+const overlayBackdrop = document.getElementById("overlayBackdrop");
+const btnOverlayClose = document.getElementById("btnOverlayClose");
+const overlayWinner = document.getElementById("overlayWinner");
+const overlayInfo = document.getElementById("overlayInfo");
+
+function openWinnerOverlay(winnerId, infoText) {
+  overlayWinner.textContent = winnerId || "—";
+  overlayInfo.textContent = infoText || "";
+  winnerOverlay.classList.remove("hidden");
+  winnerOverlay.setAttribute("aria-hidden", "false");
+}
+
+function closeWinnerOverlay() {
+  winnerOverlay.classList.add("hidden");
+  winnerOverlay.setAttribute("aria-hidden", "true");
+}
+
+btnOverlayClose?.addEventListener("click", closeWinnerOverlay);
+overlayBackdrop?.addEventListener("click", closeWinnerOverlay);
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !winnerOverlay.classList.contains("hidden")) {
+    closeWinnerOverlay();
+  }
+});
+
 function setHint(message, type) {
   hint.textContent = message;
   hint.className = "hint " + (type || "");
@@ -145,10 +173,17 @@ btnDraw.addEventListener("click", async () => {
   }
 
   const data = await r.json();
+
   winnerIdEl.textContent = data.winner.id;
-  winnerMetaEl.textContent = `Sorteado em ${formatDate(data.drawnAt)} • Total: ${data.total}`;
+  const infoText = `Sorteado em ${formatDate(data.drawnAt)} • Total: ${data.total}`;
+  winnerMetaEl.textContent = infoText;
+
   btnCopy.disabled = false;
+
+  // MOSTRA A MENSAGEM ANIMADA NA TELA
+  openWinnerOverlay(data.winner.id, infoText);
 });
+
 
 btnCopy.addEventListener("click", async () => {
   const text = winnerIdEl.textContent;

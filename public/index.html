@@ -68,6 +68,25 @@
       Persistência em SQLite • Admin protegido • Pronto para Codespaces
     </div>
   </footer>
+    <!-- Overlay do Vencedor -->
+<div id="winnerOverlay" class="overlay hidden" aria-hidden="true">
+  <div class="overlay-backdrop" id="overlayBackdrop"></div>
+
+  <div class="overlay-card" role="dialog" aria-modal="true" aria-labelledby="overlayTitle">
+    <div class="overlay-badge">CHICO RECARGA</div>
+    <h3 id="overlayTitle" class="overlay-title">Temos um vencedor!</h3>
+
+    <div class="overlay-name" id="overlayWinner">—</div>
+    <div class="overlay-meta" id="overlayInfo">—</div>
+
+    <div class="overlay-actions">
+      <button id="btnOverlayClose" class="btn btn-ghost" type="button">Fechar</button>
+    </div>
+  </div>
+</div>
+
+
+  
 
   <script src="app.js"></script>
 </body>

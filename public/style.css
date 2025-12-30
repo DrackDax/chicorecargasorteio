@@ -121,3 +121,98 @@ p { margin-top: 2px; }
   max-width: 360px;
   text-align: center;
 }
+
+/* ===== Overlay vencedor ===== */
+.overlay.hidden { display: none; }
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
+
+.overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.overlay-card {
+  position: relative;
+  max-width: 560px;
+  width: calc(100% - 32px);
+  margin: 0 auto;
+  top: 12vh;
+
+  border-radius: 22px;
+  padding: 18px 18px 16px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.06);
+  box-shadow: 0 20px 70px rgba(0,0,0,0.55);
+
+  animation: overlayIn 420ms ease-out both;
+}
+
+.overlay-badge {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 1.1px;
+  font-weight: 800;
+  color: rgba(0,0,0,0.85);
+  background: linear-gradient(135deg, rgba(247,211,106,0.95), rgba(202,162,58,0.95));
+}
+
+.overlay-title {
+  margin-top: 12px;
+  font-size: 18px;
+  color: rgba(255,255,255,0.85);
+}
+
+.overlay-name {
+  margin-top: 10px;
+  font-size: 42px;
+  font-weight: 1000;
+  line-height: 1.05;
+  letter-spacing: 0.3px;
+
+  /* brilho animado */
+  background: linear-gradient(90deg, rgba(247,211,106,0.95), rgba(255,255,255,0.92), rgba(202,162,58,0.95));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+
+  animation: winnerPop 650ms cubic-bezier(.2, .9, .2, 1) both,
+             shine 1400ms ease-in-out 1 both;
+}
+
+.overlay-meta {
+  margin-top: 10px;
+  font-size: 14px;
+  color: rgba(255,255,255,0.7);
+}
+
+.overlay-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
+@keyframes overlayIn {
+  from { transform: translateY(16px) scale(0.98); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes winnerPop {
+  0%   { transform: scale(0.92); filter: blur(0.8px); }
+  55%  { transform: scale(1.04); filter: blur(0px); }
+  100% { transform: scale(1); }
+}
+
+@keyframes shine {
+  0%   { filter: drop-shadow(0 0 0 rgba(247,211,106,0.0)); }
+  50%  { filter: drop-shadow(0 0 18px rgba(247,211,106,0.28)); }
+  100% { filter: drop-shadow(0 0 0 rgba(247,211,106,0.0)); }
+}
