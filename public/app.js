@@ -1,5 +1,6 @@
 const formAdd = document.getElementById("formAdd");
 const inputId = document.getElementById("bigoId");
+const diamondsEl = document.getElementById("diamonds");
 const hint = document.getElementById("hint");
 
 const listEl = document.getElementById("list");
@@ -8,6 +9,7 @@ const countEl = document.getElementById("count");
 const btnDraw = document.getElementById("btnDraw");
 const btnCopy = document.getElementById("btnCopy");
 const btnLogout = document.getElementById("btnLogout");
+const btnReset = document.getElementById("btnReset");
 
 const winnerIdEl = document.getElementById("winnerId");
 const winnerMetaEl = document.getElementById("winnerMeta");
@@ -65,35 +67,38 @@ function isValidBigoId(value) {
   return /^[A-Za-z0-9._]{3,32}$/.test(v);
 }
 
-async function loadParticipants() {
-  const r = await fetch("/api/participants");
+// ====== carregar resumo das chances ======
+async function loadSummary() {
+  const r = await fetch("/api/entries/summary");
   if (r.status === 401) {
     window.location.href = "login.html";
-    return { total: 0, participants: [] };
+    return { totalEntries: 0, totals: [], diamondsPerChance: 200 };
   }
   return r.json();
 }
 
 async function render() {
-  const data = await loadParticipants();
-  const participants = data.participants || [];
-  countEl.textContent = String(data.total || 0);
+  const data = await loadSummary();
+  const totals = data.totals || [];
+  const totalEntries = data.totalEntries || 0;
+  const diamondsPerChance = data.diamondsPerChance || 200;
 
+  countEl.textContent = String(totalEntries);
   listEl.innerHTML = "";
 
-  if (participants.length === 0) {
-    listEl.innerHTML = `<div class="muted">Nenhum participante ainda. Adicione um BIGO ID acima.</div>`;
+  if (totals.length === 0) {
+    listEl.innerHTML = `<div class="muted">Nenhuma chance ainda. Adicione um BIGO ID e diamantes acima.</div>`;
     btnDraw.disabled = true;
     btnCopy.disabled = true;
     winnerIdEl.textContent = "—";
-    winnerMetaEl.textContent = "Adicione participantes para sortear.";
+    winnerMetaEl.textContent = "Adicione chances para sortear.";
     return;
   }
 
   btnDraw.disabled = false;
-  winnerMetaEl.textContent = `Total de participantes: ${participants.length}`;
+  winnerMetaEl.textContent = `Total de chances: ${totalEntries} • Regra: ${diamondsPerChance} diamantes = 1 chance`;
 
-  participants.forEach((p) => {
+  totals.forEach((p) => {
     const item = document.createElement("div");
     item.className = "item";
 
@@ -104,30 +109,56 @@ async function render() {
     id.className = "item-id";
     id.textContent = p.id;
 
-    const date = document.createElement("div");
-    date.className = "item-date";
-    date.textContent = `Adicionado em ${formatDate(p.created_at)}`;
+    const meta = document.createElement("div");
+    meta.className = "item-date";
+    meta.textContent = `Chances: ${p.chances}`;
 
     left.appendChild(id);
-    left.appendChild(date);
+    left.appendChild(meta);
 
     const right = document.createElement("div");
-    const del = document.createElement("button");
-    del.className = "btn btn-ghost";
-    del.type = "button";
-    del.textContent = "Remover";
-    del.addEventListener("click", async () => {
-      const r = await fetch(`/api/participants/${encodeURIComponent(p.id)}`, { method: "DELETE" });
+    right.className = "row";
+    right.style.marginTop = "0";
+
+    // -1 chance
+    const minusOne = document.createElement("button");
+    minusOne.className = "btn btn-ghost";
+    minusOne.type = "button";
+    minusOne.textContent = "-1 chance";
+    minusOne.addEventListener("click", async () => {
+      const r = await fetch(`/api/entries/by-id/${encodeURIComponent(p.id)}/one`, { method: "DELETE" });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
-        setHint(err.error || "Falha ao remover.", "err");
+        setHint(err.error || "Falha ao remover 1 chance.", "err");
         return;
       }
-      setHint("Participante removido.", "ok");
+      setHint("Removida 1 chance.", "ok");
       render();
     });
 
-    right.appendChild(del);
+    // Excluir ID (todas as chances)
+    const delAll = document.createElement("button");
+    delAll.className = "btn btn-ghost";
+    delAll.type = "button";
+    delAll.textContent = "Excluir ID";
+    delAll.addEventListener("click", async () => {
+      const ok = confirm(`Excluir TODAS as chances do ID "${p.id}"?`);
+      if (!ok) return;
+
+      const r = await fetch(`/api/entries/by-id/${encodeURIComponent(p.id)}`, { method: "DELETE" });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        setHint(err.error || "Falha ao excluir ID.", "err");
+        return;
+      }
+
+      const data = await r.json().catch(() => ({}));
+      setHint(`ID removido. Chances removidas: ${data.removed ?? "—"}.`, "ok");
+      render();
+    });
+
+    right.appendChild(minusOne);
+    right.appendChild(delAll);
 
     item.appendChild(left);
     item.appendChild(right);
@@ -136,34 +167,45 @@ async function render() {
   });
 }
 
+// Adicionar chances por diamantes
 formAdd.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const value = inputId.value;
 
-  if (!isValidBigoId(value)) {
+  const id = normalizeId(inputId.value);
+  const diamonds = Number(diamondsEl?.value);
+
+  if (!isValidBigoId(id)) {
     setHint("ID inválido. Use apenas letras, números, ponto ou underline (3 a 32 caracteres).", "err");
     return;
   }
 
-  const id = normalizeId(value);
+  if (!Number.isFinite(diamonds) || diamonds <= 0 || diamonds % 200 !== 0) {
+    setHint("Diamantes inválidos. Use apenas múltiplos de 200 (200, 400, 600...).", "err");
+    return;
+  }
 
-  const r = await fetch("/api/participants", {
+  const r = await fetch("/api/entries/by-diamonds", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id })
+    body: JSON.stringify({ id, diamonds })
   });
 
   if (!r.ok) {
     const err = await r.json().catch(() => ({}));
-    setHint(err.error || "Falha ao adicionar.", "err");
+    setHint(err.error || "Falha ao adicionar chances.", "err");
     return;
   }
 
+  const data = await r.json();
+
   inputId.value = "";
-  setHint("Participante adicionado com sucesso.", "ok");
+  if (diamondsEl) diamondsEl.value = 200;
+
+  setHint(`Adicionado: ${data.chances} chance(s) para ${data.id} (${data.diamonds} diamantes).`, "ok");
   render();
 });
 
+// Sortear
 btnDraw.addEventListener("click", async () => {
   const r = await fetch("/api/draw", { method: "POST" });
   if (!r.ok) {
@@ -175,16 +217,14 @@ btnDraw.addEventListener("click", async () => {
   const data = await r.json();
 
   winnerIdEl.textContent = data.winner.id;
-  const infoText = `Sorteado em ${formatDate(data.drawnAt)} • Total: ${data.total}`;
+  const infoText = `Sorteado em ${formatDate(data.drawnAt)} • Total de chances: ${data.total}`;
   winnerMetaEl.textContent = infoText;
 
   btnCopy.disabled = false;
-
-  // MOSTRA A MENSAGEM ANIMADA NA TELA
   openWinnerOverlay(data.winner.id, infoText);
 });
 
-
+// Copiar vencedor
 btnCopy.addEventListener("click", async () => {
   const text = winnerIdEl.textContent;
   if (!text || text === "—") return;
@@ -197,6 +237,27 @@ btnCopy.addEventListener("click", async () => {
   }
 });
 
+// Zerar chances
+btnReset?.addEventListener("click", async () => {
+  const ok = confirm("Tem certeza que deseja ZERAR todas as chances? Isso não pode ser desfeito.");
+  if (!ok) return;
+
+  const r = await fetch("/api/entries", { method: "DELETE" });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    setHint(err.error || "Falha ao zerar chances.", "err");
+    return;
+  }
+
+  setHint("Chances zeradas com sucesso.", "ok");
+  winnerIdEl.textContent = "—";
+  winnerMetaEl.textContent = "Chances zeradas. Adicione novas chances para sortear.";
+  btnCopy.disabled = true;
+
+  render();
+});
+
+// Logout
 btnLogout.addEventListener("click", async () => {
   await fetch("/api/logout", { method: "POST" });
   window.location.href = "login.html";

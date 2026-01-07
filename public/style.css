@@ -216,3 +216,24 @@ p { margin-top: 2px; }
   50%  { filter: drop-shadow(0 0 18px rgba(247,211,106,0.28)); }
   100% { filter: drop-shadow(0 0 0 rgba(247,211,106,0.0)); }
 }
+
+/* ===== Ajuste do formulário (BIGO ID + Diamantes + Botão) ===== */
+.form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 10px;
+}
+
+.form > div { min-width: 0; }
+
+.form > .btn {
+  height: 46px;
+  align-self: end;
+}
+
+@media (max-width: 820px) {
+  .form { grid-template-columns: 1fr; }
+  .form > .btn { width: 100%; }
+}

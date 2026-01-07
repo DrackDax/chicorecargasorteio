@@ -13,7 +13,7 @@
         <div class="logo">CH</div>
         <div>
           <h1>Chico Recarga</h1>
-          <p>Sorteio por BIGO ID (letras e números)</p>
+          <p>Sorteio por BIGO ID • 200 diamantes = 1 chance</p>
         </div>
       </div>
 
@@ -25,12 +25,37 @@
 
   <main class="container grid">
     <section class="card">
-      <h2>Adicionar participante</h2>
-      <p class="muted">Digite o BIGO ID do participante (ex.: <strong>lucasyt</strong> ou <strong>AB12CD34</strong>).</p>
+      <h2>Adicionar chances</h2>
+      <p class="muted">
+        Informe o <strong>BIGO ID</strong> e os <strong>diamantes</strong> (somente múltiplos de 200).
+        O sistema converte automaticamente em <strong>chances</strong>.
+      </p>
 
       <form id="formAdd" class="form">
-        <label class="label" for="bigoId">BIGO ID</label>
-        <input id="bigoId" name="bigoId" class="input" placeholder="Digite o ID (letras/números)" autocomplete="off" />
+        <div>
+          <label class="label" for="bigoId">BIGO ID</label>
+          <input
+            id="bigoId"
+            name="bigoId"
+            class="input"
+            placeholder="Ex.: lucasyt ou AB12CD34"
+            autocomplete="off"
+          />
+        </div>
+
+        <div>
+          <label class="label" for="diamonds">Diamantes (múltiplos de 200)</label>
+          <input
+            id="diamonds"
+            name="diamonds"
+            class="input"
+            type="number"
+            min="200"
+            step="200"
+            value="200"
+          />
+        </div>
+
         <button class="btn" type="submit">Adicionar</button>
       </form>
 
@@ -39,7 +64,7 @@
 
     <section class="card">
       <h2>Sorteio</h2>
-      <p class="muted">O sorteio seleciona 1 vencedor aleatório da lista atual.</p>
+      <p class="muted">O sorteio seleciona 1 vencedor aleatório entre todas as <strong>chances</strong> cadastradas.</p>
 
       <div class="row">
         <button id="btnDraw" class="btn btn-primary" type="button">Sortear agora</button>
@@ -49,14 +74,20 @@
       <div class="winner" id="winnerBox" aria-live="polite">
         <div class="winner-title">Vencedor:</div>
         <div class="winner-id" id="winnerId">—</div>
-        <div class="winner-meta" id="winnerMeta">Carregando participantes...</div>
+        <div class="winner-meta" id="winnerMeta">Carregando chances...</div>
       </div>
     </section>
 
     <section class="card span-2">
       <div class="list-head">
-        <h2>Participantes</h2>
-        <div class="muted"><span id="count">0</span> na lista</div>
+        <div>
+          <h2>Chances por ID</h2>
+          <div class="muted"><span id="count">0</span> chances no sorteio</div>
+        </div>
+
+        <div class="row" style="margin-top:0">
+          <button id="btnReset" class="btn btn-ghost" type="button">Zerar chances</button>
+        </div>
       </div>
 
       <div class="list" id="list"></div>
@@ -65,28 +96,26 @@
 
   <footer class="footer">
     <div class="container muted">
-      Persistência em SQLite • Admin protegido • Pronto para Codespaces
+      Persistência em SQLite • Admin protegido • Sorteio por chances (200 diamantes = 1 chance)
     </div>
   </footer>
-    <!-- Overlay do Vencedor -->
-<div id="winnerOverlay" class="overlay hidden" aria-hidden="true">
-  <div class="overlay-backdrop" id="overlayBackdrop"></div>
 
-  <div class="overlay-card" role="dialog" aria-modal="true" aria-labelledby="overlayTitle">
-    <div class="overlay-badge">CHICO RECARGA</div>
-    <h3 id="overlayTitle" class="overlay-title">Temos um vencedor!</h3>
+  <!-- Overlay do Vencedor -->
+  <div id="winnerOverlay" class="overlay hidden" aria-hidden="true">
+    <div class="overlay-backdrop" id="overlayBackdrop"></div>
 
-    <div class="overlay-name" id="overlayWinner">—</div>
-    <div class="overlay-meta" id="overlayInfo">—</div>
+    <div class="overlay-card" role="dialog" aria-modal="true" aria-labelledby="overlayTitle">
+      <div class="overlay-badge">CHICO RECARGA</div>
+      <h3 id="overlayTitle" class="overlay-title">Temos um vencedor!</h3>
 
-    <div class="overlay-actions">
-      <button id="btnOverlayClose" class="btn btn-ghost" type="button">Fechar</button>
+      <div class="overlay-name" id="overlayWinner">—</div>
+      <div class="overlay-meta" id="overlayInfo">—</div>
+
+      <div class="overlay-actions">
+        <button id="btnOverlayClose" class="btn btn-ghost" type="button">Fechar</button>
+      </div>
     </div>
   </div>
-</div>
-
-
-  
 
   <script src="app.js"></script>
 </body>
